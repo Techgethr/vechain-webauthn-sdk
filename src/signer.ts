@@ -60,13 +60,38 @@ export class VeChainWebAuthnSigner {
     transaction: Transaction,
     options: SignOptions = {}
   ): Promise<Transaction> {
-    // This is a simplified implementation
-    // In a real scenario, you'd need to:
-    // 1. Send the transaction data to the browser for WebAuthn signing
-    // 2. Have the browser use the stored credential to sign the transaction hash
-    // 3. Return the signature to complete the transaction
-    
-    throw new Error('Transaction signing with WebAuthn is not yet fully implemented in this SDK. This requires a complex interaction between client-side WebAuthn API and the VeChain transaction signing process.');
+    // WebAuthn transaction signing implementation
+    // This is a complex operation that requires coordination between:
+    // 1. The backend (this SDK) preparing the transaction data
+    // 2. The browser performing WebAuthn signing
+    // 3. Reconstructing the signed transaction
+
+    try {
+      // Step 1: Prepare the transaction data for signing
+      const transactionData = this.prepareTransactionForSigning(transaction);
+
+      // Step 2: Create a challenge for WebAuthn signing
+      const challenge = this.createChallenge(transactionData);
+
+      // Step 3: In a real implementation, this would trigger the browser to:
+      // - Display the transaction details to the user
+      // - Ask for WebAuthn authentication
+      // - Sign the challenge
+      // - Return the signature
+
+      // For this SDK implementation, we'll simulate the signing process
+      // In a real application, you would need to:
+      // 1. Send the challenge to the browser
+      // 2. Have the browser call navigator.credentials.get()
+      // 3. Return the signature to complete the transaction
+
+      // Placeholder implementation - in reality this would be handled by the browser
+      throw new Error('Transaction signing requires browser-side WebAuthn implementation. Use initiateClientSideSigning() for the browser-side component.');
+
+    } catch (error) {
+      console.error('Error signing transaction:', error);
+      throw new Error(`Transaction signing failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
@@ -82,11 +107,29 @@ export class VeChainWebAuthnSigner {
     data: Uint8Array,
     options: SignOptions = {}
   ): Promise<Uint8Array> {
-    // This is a conceptual implementation
-    // In practice, WebAuthn doesn't directly sign arbitrary data
-    // Instead, you'd need to use a challenge-response model
-    
-    throw new Error('Data signing with WebAuthn is not directly possible. WebAuthn uses a challenge-response model and signs a specific format that includes the challenge, origin, and other contextual data.');
+    // WebAuthn doesn't directly sign arbitrary data like traditional ECDSA
+    // Instead, it uses a challenge-response model where the authenticator
+    // signs a specific format that includes the challenge, origin, etc.
+
+    try {
+      // Step 1: Create a challenge from the data
+      const challenge = this.createChallenge(data);
+
+      // Step 2: In a real implementation, this would trigger the browser to:
+      // - Display the data being signed to the user
+      // - Ask for WebAuthn authentication
+      // - Sign the challenge
+      // - Return the signature
+
+      // For this SDK, we'll provide the framework but the actual signing
+      // needs to happen in the browser using initiateClientSideSigning()
+
+      throw new Error('Data signing requires browser-side WebAuthn implementation. Use initiateClientSideSigning() for the browser-side component.');
+
+    } catch (error) {
+      console.error('Error signing data:', error);
+      throw new Error(`Data signing failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
@@ -118,17 +161,44 @@ export class VeChainWebAuthnSigner {
     data: Uint8Array,
     expectedAddress: string
   ): Promise<boolean> {
-    // WebAuthn signatures are verified differently than traditional ECDSA signatures
-    // This is a conceptual implementation showing how it could work
-    
-    // In a real implementation:
-    // 1. Extract the public key from the original credential registration
-    // 2. Use the WebAuthn verification process to verify the signature
-    // 3. Derive the VeChain address from the public key
-    // 4. Compare with the expected address
-    
-    // This requires storing the public key from the initial registration
-    return true; // Placeholder
+    try {
+      // In a real implementation, you would:
+      // 1. Extract the public key from the original credential registration
+      // 2. Use the WebAuthn verification process to verify the signature
+      // 3. Derive the VeChain address from the public key
+      // 4. Compare with the expected address
+
+      // For now, we'll implement a conceptual verification
+      // This requires the public key to be stored from the initial registration
+
+      // Step 1: Parse the WebAuthn signature components
+      const authenticatorData = Uint8Array.from(atob(signature.response.authenticatorData), c => c.charCodeAt(0));
+      const clientDataJSON = Uint8Array.from(atob(signature.response.clientDataJSON), c => c.charCodeAt(0));
+      const signatureBytes = Uint8Array.from(atob(signature.response.signature), c => c.charCodeAt(0));
+
+      // Step 2: Parse client data to get the challenge
+      const clientData = JSON.parse(new TextDecoder().decode(clientDataJSON));
+      const challenge = Uint8Array.from(atob(clientData.challenge), c => c.charCodeAt(0));
+
+      // Step 3: Verify the challenge matches what we expect
+      const expectedChallenge = btoa(String.fromCharCode(...data));
+      if (clientData.challenge !== expectedChallenge) {
+        return false;
+      }
+
+      // Step 4: In a real implementation, you would:
+      // - Use the stored public key from registration to verify the signature
+      // - Check that the signature is valid for the authenticator data + client data
+      // - Verify that the public key corresponds to the expected VeChain address
+
+      // For this demo, we'll do a simplified verification
+      // In production, you'd use a proper WebAuthn verification library
+      return true;
+
+    } catch (error) {
+      console.error('Error verifying WebAuthn signature:', error);
+      return false;
+    }
   }
 
   /**

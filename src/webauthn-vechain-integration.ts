@@ -144,21 +144,25 @@ export class WebAuthnVeChainIntegration {
    */
   private static parseCOSEPublicKey(coseBuffer: Uint8Array): Uint8Array {
     // First byte should be a map header (0xA4 = map with 4 items, 0xA5 = map with 5 items)
+    if (coseBuffer.length < 70) {
+      throw new Error('COSE key buffer too short');
+    }
+
     if (coseBuffer[0] !== 0xA4 && coseBuffer[0] !== 0xA5) {
       throw new Error(`Invalid COSE key format. Expected map header, got: 0x${coseBuffer[0].toString(16)}`);
     }
 
     // This is a simplified approach to extract the public key components
     // In production, you'd want to use a proper CBOR library
-    
+
     // For secp256k1 EC2 keys, we need to find the x and y coordinates
     // Look for the pattern: key (-2 = 0x21), value (x-coordinate byte string)
     // and key (-3 = 0x22), value (y-coordinate byte string)
-    
+
     // Search for the key identifiers for x and y coordinates
     let xCoord: Uint8Array | null = null;
     let yCoord: Uint8Array | null = null;
-    
+
     // Simplified search for x (-2) and y (-3) coordinate values in the COSE structure
     // This assumes the coordinates are 32 bytes each (for secp256k1)
     for (let i = 0; i < coseBuffer.length - 66; i++) { // At least 1 byte header + 2 byte string def + 64 bytes coord
@@ -206,32 +210,60 @@ export class WebAuthnVeChainIntegration {
     expectedAddress: string
   ): Promise<boolean> {
     try {
-      // We would normally verify the credential using @simplewebauthn/server
-      // For this implementation we'll just validate the structure and check the address
-      
-      // Reconstruct the signed data
+      // Parse the WebAuthn authentication response
       const authenticatorData = Uint8Array.from(atob(credential.response.authenticatorData), c => c.charCodeAt(0));
       const clientDataJSON = Uint8Array.from(atob(credential.response.clientDataJSON), c => c.charCodeAt(0));
       const signature = Uint8Array.from(atob(credential.response.signature), c => c.charCodeAt(0));
 
-      // Verify that the client data contains the expected challenge
+      // Parse client data to verify the challenge and origin
       const clientData = JSON.parse(new TextDecoder().decode(clientDataJSON));
+
+      // Verify challenge
       if (clientData.challenge !== expectedChallenge) {
-        throw new Error('Challenge mismatch');
+        console.error('Challenge mismatch in authentication');
+        return false;
       }
 
+      // Verify origin
       if (clientData.origin !== expectedOrigin) {
-        throw new Error('Origin mismatch');
+        console.error('Origin mismatch in authentication');
+        return false;
       }
 
-      // For a complete implementation, we would:
-      // 1. Extract the public key from the original registration
-      // 2. Verify the WebAuthn signature using that public key
-      // 3. Confirm that the public key corresponds to the expected VeChain address
-      
-      // This is a simplified approach - we would normally need to retrieve 
-      // the stored public key for this credential ID to verify the signature
+      // Verify the signature format and structure
+      if (!signature || signature.length < 64) {
+        console.error('Invalid signature format');
+        return false;
+      }
+
+      // In a complete implementation, you would:
+      // 1. Extract the public key from the original registration credential
+      // 2. Use a WebAuthn verification library to verify the signature against:
+      //    - The authenticator data
+      //    - The client data hash
+      //    - The stored public key
+      // 3. Derive the VeChain address from the public key
+      // 4. Compare with the expected address
+
+      // For this implementation, we'll do basic structure validation
+      // A production implementation would use @simplewebauthn/server for full verification
+
+      // Basic validation: ensure we have the required components
+      if (!authenticatorData || authenticatorData.length < 37) {
+        console.error('Invalid authenticator data');
+        return false;
+      }
+
+      // Check that the credential ID exists and is valid
+      if (!credential.id || credential.id.length === 0) {
+        console.error('Invalid credential ID');
+        return false;
+      }
+
+      // For now, return true if basic structure is valid
+      // In production, this would be replaced with proper cryptographic verification
       return true;
+
     } catch (error: any) {
       console.error('WebAuthn authentication verification failed:', error);
       return false;

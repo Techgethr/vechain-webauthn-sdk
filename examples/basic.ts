@@ -3,7 +3,7 @@
  * This example shows how to register and authenticate a WebAuthn-based VeChain wallet
  */
 
-import { VeChainWebAuthnSDK, VeChainWebAuthnSigner } from './src';
+import { VeChainWebAuthnSDK } from '../dist';
 
 // Initialize the SDK
 const sdk = new VeChainWebAuthnSDK({

@@ -1,4 +1,4 @@
-import { VeChainWebAuthnSDK } from './src';
+import { VeChainWebAuthnSDK } from '../dist';
 
 // Simple test to make sure the SDK can be imported and instantiated
 describe('VeChainWebAuthnSDK', () => {

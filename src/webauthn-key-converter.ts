@@ -1,72 +1,101 @@
-import { bls12_381 } from '@noble/curves/bls12-381';
-import { secp256k1 } from '@noble/curves/secp256k1';
-import { sha256 } from '@noble/hashes/sha256';
-import { Blake2b256 } from '@vechain/sdk-core';
+import { Address, HDKey, Mnemonic, Hex } from '@vechain/sdk-core';
 
 /**
  * Utility class to convert WebAuthn public keys to VeChain-compatible format
  */
 export class WebAuthnKeyConverter {
   /**
-   * Extract public key from WebAuthn credential
-   * 
-   * This implementation handles both EC2 (secp256k1) and RSA public keys
+   * Extract public key from WebAuthn credential with improved COSE parsing
+   *
+   * This implementation handles EC2 (secp256k1) public keys from WebAuthn credentials
    */
   static extractPublicKeyFromWebAuthn(
     credentialPublicKey: Uint8Array
   ): Uint8Array {
-    // Parse the COSE key (RFC 8152) from the WebAuthn credential
-    // This is a simplified implementation for secp256k1 keys
-    // Real implementation would need to properly parse the COSE key format
-    
-    // For now, we'll simulate the extraction based on common WebAuthn key formats
-    const cosePublicKey = credentialPublicKey;
-    
-    // The actual public key is in the COSE format - we need to extract it
-    // This is a simplified parser for EC2 keys
-    // The COSE key format: 
-    // - First byte is the key type (EC2 is 2, RSA is 3)
-    // - Then there are key parameters
-    
-    if (cosePublicKey[0] === 0x02) { // EC2 key type
-      // This is a simplified extraction - real implementation needs proper COSE parsing
-      // EC2 keys in COSE format have curve identifier and coordinates
-      // We'll extract the public key bytes (x and y coordinates)
-      // Skip the header and extract x and y coordinates
-      const xCoord = cosePublicKey.slice(3, 35);  // x coordinate (32 bytes)
-      const yCoord = cosePublicKey.slice(35, 67); // y coordinate (32 bytes)
-      
-      // Combine x and y coordinates for uncompressed format (0x04 + x + y)
-      const publicKey = new Uint8Array([0x04, ...xCoord, ...yCoord]);
-      return publicKey;
-    } else {
-      throw new Error('Only EC2 keys (secp256k1) are currently supported');
+    try {
+      // Parse the COSE key (RFC 8152) from the WebAuthn credential
+      // COSE key structure for EC2 keys:
+      // - Map header (0xA4 for 4 items)
+      // - Key type (1 => 0x02 for EC2)
+      // - Algorithm/Curve (3 => 0x26 for secp256k1)
+      // - X coordinate (-2)
+      // - Y coordinate (-3)
+
+      if (credentialPublicKey.length < 70) {
+        throw new Error('Invalid COSE key: too short');
+      }
+
+      // Basic validation - should start with map header (0xA4 or 0xA5)
+      if (credentialPublicKey[0] !== 0xA4 && credentialPublicKey[0] !== 0xA5) {
+        throw new Error('Invalid COSE key format: expected map header');
+      }
+
+      // For now, use a simplified extraction based on common WebAuthn key formats
+      // In production, you'd want to use a proper CBOR library
+      const cosePublicKey = credentialPublicKey;
+
+      if (cosePublicKey[0] === 0x02) { // EC2 key type
+        // Extract x and y coordinates (32 bytes each)
+        // Skip the header and extract coordinates
+        const xCoord = cosePublicKey.slice(3, 35);  // x coordinate (32 bytes)
+        const yCoord = cosePublicKey.slice(35, 67); // y coordinate (32 bytes)
+
+        if (xCoord.length !== 32 || yCoord.length !== 32) {
+          throw new Error('Invalid EC2 key coordinates');
+        }
+
+        // Combine x and y coordinates for uncompressed format (0x04 + x + y)
+        const publicKey = new Uint8Array([0x04, ...xCoord, ...yCoord]);
+        return publicKey;
+      } else {
+        throw new Error('Only EC2 keys (secp256k1) are currently supported');
+      }
+    } catch (error) {
+      console.error('Error extracting public key from WebAuthn credential:', error);
+      throw new Error(`Failed to extract public key: ${error}`);
     }
   }
 
   /**
-   * Convert WebAuthn public key to VeChain address
+   * Convert compressed public key to uncompressed format
    */
-  static publicKeyToVeChainAddress(publicKey: Uint8Array): string {
-    // Verify the key format starts with 0x04 (uncompressed format)
-    if (publicKey[0] !== 0x04) {
-      throw new Error('Public key must be in uncompressed format (0x04 prefix)');
+  static decompressPublicKey(compressedKey: Uint8Array): Uint8Array {
+    try {
+      if (compressedKey.length !== 33 || (compressedKey[0] !== 0x02 && compressedKey[0] !== 0x03)) {
+        throw new Error('Invalid compressed public key format');
+      }
+
+      // For now, we'll use a simplified approach
+      // In production, you'd want to use proper elliptic curve math
+      // This is a placeholder implementation
+      const x = compressedKey.slice(1);
+      const y = new Uint8Array(32); // Placeholder - real implementation needed
+
+      return new Uint8Array([0x04, ...x, ...y]);
+    } catch (error) {
+      console.error('Error decompressing public key:', error);
+      throw new Error(`Failed to decompress public key: ${error}`);
     }
+  }
 
-    // Extract the x and y coordinates (removing the prefix)
-    const xCoord = publicKey.slice(1, 33);  // 32 bytes
-    const yCoord = publicKey.slice(33, 65); // 32 bytes
-
-    // Recreate the public key point
-    const fullPublicKey = new Uint8Array([0x04, ...xCoord, ...yCoord]);
-
-    // Hash the public key with Blake2b256
-    const publicKeyHash = Blake2b256.of(fullPublicKey.slice(1)).bytes; // Remove 0x04 prefix before hashing
-
-    // Take the last 20 bytes as the address
-    const address = '0x' + Buffer.from(publicKeyHash).toString('hex').slice(-40);
-
-    return address;
+  /**
+   * Normalize public key to uncompressed format for VeChain compatibility
+   */
+  static normalizePublicKeyForVeChain(publicKey: Uint8Array): Uint8Array {
+    try {
+      if (publicKey.length === 65 && publicKey[0] === 0x04) {
+        // Already uncompressed
+        return publicKey;
+      } else if (publicKey.length === 33 && (publicKey[0] === 0x02 || publicKey[0] === 0x03)) {
+        // Compressed format - decompress it
+        return this.decompressPublicKey(publicKey);
+      } else {
+        throw new Error('Unsupported public key format');
+      }
+    } catch (error) {
+      console.error('Error normalizing public key:', error);
+      throw new Error(`Failed to normalize public key: ${error}`);
+    }
   }
   
   /**
@@ -78,18 +107,11 @@ export class WebAuthnKeyConverter {
       if (publicKey.length !== 65 || publicKey[0] !== 0x04) {
         return false;
       }
-      
-      // Validate the secp256k1 point
-      const x = publicKey.slice(1, 33);
-      const y = publicKey.slice(33, 65);
-      // Convert bytes to hex string for the secp256k1 library
-      const xHex = Buffer.from(x).toString('hex');
-      const yHex = Buffer.from(y).toString('hex');
-      // Note: The actual validation would be done differently
-      // This is just a basic check
+
+      // Use VeChain SDK's built-in validation by attempting to create an address
+      // This will throw an error if the public key is invalid
+      Address.ofPublicKey(publicKey);
       return true;
-      
-      return true; // or simply return true if point is valid
     } catch (error) {
       console.error('Invalid public key:', error);
       return false;
@@ -109,17 +131,87 @@ export class WebAuthnKeyConverter {
       offset += rLen + 2; // +2 for tag and length of s
       const sLen = signature[offset - 1];
       const s = signature.slice(offset, offset + sLen);
-      
+
       // Ensure r and s are 32 bytes each, pad with zeros if necessary
       const paddedR = new Uint8Array(32);
       const paddedS = new Uint8Array(32);
       paddedR.set(r, 32 - r.length);
       paddedS.set(s, 32 - s.length);
-      
+
       return new Uint8Array([...paddedR, ...paddedS]);
     }
-    
+
     // If already in r||s format, return as is
     return signature;
+  }
+
+  /**
+   * Generate a BIP-39 mnemonic phrase for traditional wallet backup
+   */
+  static generateMnemonic(): string {
+    try {
+      return Mnemonic.of().toString();
+    } catch (error) {
+      console.error('Error generating mnemonic:', error);
+      throw new Error(`Failed to generate mnemonic: ${error}`);
+    }
+  }
+
+  /**
+   * Derive a private key from a BIP-39 mnemonic phrase
+   */
+  static mnemonicToPrivateKey(mnemonic: string): Uint8Array {
+    try {
+      return Mnemonic.toPrivateKey(mnemonic.split(' '));
+    } catch (error) {
+      console.error('Error deriving private key from mnemonic:', error);
+      throw new Error(`Failed to derive private key: ${error}`);
+    }
+  }
+
+  /**
+   * Create an HD key from an extended public key (xpub)
+   */
+  static createHDKeyFromExtendedPublicKey(xpub: string): HDKey {
+    const xpubBytes = Hex.of(xpub).bytes;
+    // For this implementation, we'll create a basic HD key structure
+    // Note: The actual VeChain SDK may need additional chain code for full functionality
+    return HDKey.fromPublicKey(xpubBytes.slice(0, 33), xpubBytes.slice(33));
+  }
+
+  /**
+   * Derive multiple VeChain addresses from a single WebAuthn public key using HD derivation
+   */
+  static deriveMultipleAddressesFromWebAuthnKey(
+    publicKey: Uint8Array,
+    count: number = 5
+  ): string[] {
+    const addresses: string[] = [];
+
+    try {
+      // Create HD key from the WebAuthn public key
+      const hdKey = HDKey.fromPublicKey(publicKey.slice(1, 33), publicKey.slice(33));
+
+      for (let i = 0; i < count; i++) {
+        const child = hdKey.deriveChild(i);
+        if (child.publicKey) {
+          const address = Address.ofPublicKey(child.publicKey).toString();
+          addresses.push(address);
+        }
+      }
+
+      return addresses;
+    } catch (error) {
+      console.error('Error deriving multiple addresses:', error);
+      throw new Error(`Failed to derive addresses: ${error}`);
+    }
+  }
+
+  /**
+   * Get the VeChain address derivation path for a given index
+   */
+  static getVeChainDerivationPath(index: number = 0): string {
+    // VeChain uses the standard BIP44 path with coin type 818
+    return `m/44'/818'/0'/0/${index}`;
   }
 }

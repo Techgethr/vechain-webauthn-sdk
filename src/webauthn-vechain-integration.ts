@@ -31,8 +31,8 @@ export class WebAuthnVeChainIntegration {
         throw new Error('Invalid public key extracted from WebAuthn credential');
       }
       
-      // Create the VeChain address from the public key
-      const address = WebAuthnKeyConverter.publicKeyToVeChainAddress(publicKey);
+      // Create the VeChain address from the public key using the improved method
+      const address = Address.ofPublicKey(publicKey).toString();
       
       // Extract credential ID - rawId might be a string or ArrayBuffer, handle both
       const rawId = typeof credential.rawId === 'string' 

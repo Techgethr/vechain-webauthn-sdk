@@ -12,8 +12,14 @@ A TypeScript SDK for creating VeChain wallets connected with WebAuthn. This SDK 
 
 ## Installation
 
+1. Compile the SDK using the following command:
 ```bash
-npm install @techgethr/vechain-webauthn-sdk
+npm run build
+```
+
+2. Install the SDK using the following command or use the dist folder:
+```bash
+npm install ./dist
 ```
 
 ## Usage

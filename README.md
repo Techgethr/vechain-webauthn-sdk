@@ -146,16 +146,38 @@ Validates a registration response and returns the VeChain address.
 
 #### generateAuthenticationOptions()
 
-Generates options for WebAuthn authentication.
 
 #### validateAuthentication(credential, expectedChallenge, expectedAddress, credentialPublicKey, credentialCurrentSignCount)
 
 Validates an authentication response.
 
-## Contributing
+## Future Enhancements
 
-We welcome contributions! Please see our [Issues](https://github.com/techgethr/vechain-webauthn-sdk/issues) for ways to contribute.
+### High Priority Features
 
-## License
+- **🔐 Transaction Signing**: Complete WebAuthn integration for signing VeChain transactions
+- **📱 Mobile Support**: Native mobile app integration for iOS and Android
+- **🔄 Multi-signature Wallets**: Support for multi-signature wallet creation and management
 
-MIT
+### Medium Priority Features
+
+- **🔗 Smart Contract Integration**: Built-in utilities for interacting with VeChain smart contracts
+- **📊 Portfolio Management**: Tools for managing multiple VeChain addresses and balances
+- **🎨 Custom UI Components**: Pre-built UI components for wallet integration
+- **📈 DeFi Integration**: Built-in support for popular VeChain DeFi protocols
+
+### Developer Experience Improvements
+
+- **🧪 Testing Suite**: Comprehensive test suite with WebAuthn mocking capabilities
+- **📚 Better Documentation**: Interactive examples and detailed API documentation
+- **🛠️ Development Tools**: Browser developer tools extension for debugging WebAuthn flows
+- **🏗️ Build Tools**: CLI tools for scaffolding WebAuthn-enabled dApps
+- **🔍 Monitoring**: Built-in analytics and error reporting for WebAuthn operations
+
+### Advanced Features
+
+- **⚡ Batch Operations**: Support for batch transaction signing and execution
+- **🔄 Account Recovery**: Secure account recovery mechanisms using social authentication
+- **🎯 Gas Optimization**: Automatic gas price optimization for transactions
+- **📦 NFT Support**: Built-in utilities for VeChain NFT operations
+- **🌉 Cross-chain Support**: Integration with other blockchain networks

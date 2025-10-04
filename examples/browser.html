@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeChain WebAuthn Wallet Example</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #45a049; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        .container { margin: 20px 0; }
+        .result { background: #f0f8ff; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>VeChain WebAuthn Wallet Example</h1>
+    
+    <div class="container">
+        <h2>Register New Wallet</h2>
+        <p>Create a new VeChain wallet secured with WebAuthn</p>
+        <input type="text" id="userId" placeholder="User ID" value="user123">
+        <input type="text" id="userName" placeholder="Username" value="user@example.com">
+        <input type="text" id="displayName" placeholder="Display Name" value="Example User">
+        <br>
+        <button id="registerBtn">Register Wallet</button>
+        <div id="registerResult" class="result" style="display: none;"></div>
+    </div>
+    
+    <div class="container">
+        <h2>Authenticate Wallet</h2>
+        <p>Sign in with your existing WebAuthn wallet</p>
+        <button id="authBtn" disabled>Authenticate Wallet</button>
+        <div id="authResult" class="result" style="display: none;"></div>
+    </div>
+    
+    <div class="container">
+        <h2>Wallet Information</h2>
+        <div id="walletInfo" style="display: none;">
+            <p><strong>VeChain Address:</strong> <span id="vechainAddress"></span></p>
+            <p><strong>Credential ID:</strong> <span id="credentialId"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // This is a simplified example for demonstration purposes
+        // In a real implementation, you would connect to your backend API
+        
+        // Store credential info in memory for this example
+        let credentialInfo = null;
+        
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            const userId = document.getElementById('userId').value;
+            const userName = document.getElementById('userName').value;
+            const displayName = document.getElementById('displayName').value;
+            
+            if (!userId || !userName || !displayName) {
+                showResult('Please fill in all fields', 'error');
+                return;
+            }
+            
+            try {
+                showResult('Generating registration options...', 'info');
+                
+                // In a real implementation, call your backend API to generate registration options
+                // This is a simplified simulation
+                const options = await generateRegistrationOptions(userId, userName, displayName);
+                
+                // Complete the registration using WebAuthn
+                const credential = await navigator.credentials.create({
+                    publicKey: options
+                });
+                
+                // In a real implementation, send the credential to your backend for verification
+                // and VeChain address derivation
+                const result = await verifyRegistration(credential);
+                
+                if (result.verified) {
+                    credentialInfo = {
+                        id: result.credentialId,
+                        address: result.address,
+                        publicKey: result.publicKey
+                    };
+                    
+                    document.getElementById('vechainAddress').textContent = result.address;
+                    document.getElementById('credentialId').textContent = result.credentialId;
+                    document.getElementById('walletInfo').style.display = 'block';
+                    document.getElementById('authBtn').disabled = false;
+                    
+                    showResult(`Registration successful! VeChain address: ${result.address}`, 'success');
+                } else {
+                    showResult(`Registration failed: ${result.errorMessage || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showResult(`Registration error: ${error.message}`, 'error');
+            }
+        });
+        
+        document.getElementById('authBtn').addEventListener('click', async () => {
+            if (!credentialInfo) {
+                showResult('No credential to authenticate', 'error');
+                return;
+            }
+            
+            try {
+                showResult('Generating authentication options...', 'info');
+                
+                // In a real implementation, call your backend API to generate authentication options
+                const options = await generateAuthenticationOptions();
+                
+                // Complete the authentication using WebAuthn
+                const credential = await navigator.credentials.get({
+                    publicKey: options
+                });
+                
+                // In a real implementation, send the credential to your backend for verification
+                const result = await verifyAuthentication(credential, credentialInfo.address);
+                
+                if (result.verified) {
+                    showResult(`Authentication successful! Address: ${credentialInfo.address}`, 'success');
+                } else {
+                    showResult(`Authentication failed: ${result.errorMessage || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showResult(`Authentication error: ${error.message}`, 'error');
+            }
+        });
+        
+        // These functions simulate backend API calls
+        async function generateRegistrationOptions(userId, userName, displayName) {
+            // This would normally come from your backend
+            // Here we're simulating it for demonstration
+            return {
+                challenge: base64ToArrayBuffer(generateRandomString(32)),
+                rp: {
+                    name: 'VeChain WebAuthn Wallet',
+                    id: window.location.hostname
+                },
+                user: {
+                    id: base64ToArrayBuffer(userId),
+                    name: userName,
+                    displayName: displayName
+                },
+                pubKeyCredParams: [
+                    { type: 'public-key', alg: -7 },   // ES256
+                    { type: 'public-key', alg: -257 }  // RS256
+                ],
+                timeout: 60000,
+                attestation: 'none',
+                authenticatorSelection: {
+                    residentKey: 'preferred',
+                    userVerification: 'preferred',
+                    authenticatorAttachment: 'platform'
+                }
+            };
+        }
+        
+        async function verifyRegistration(credential) {
+            // This would normally be handled by your backend
+            // This is a simplified simulation
+            try {
+                // Simulate extracting VeChain address from the credential
+                // In reality, this would involve CBOR parsing of the attestation object
+                const address = `0x${generateRandomString(40)}`; // Simulated VeChain address
+                const credentialId = arrayBufferToBase64(credential.rawId);
+                
+                return {
+                    verified: true,
+                    address: address,
+                    credentialId: credentialId,
+                    publicKey: new Uint8Array([]) // In a real implementation, you'd extract this
+                };
+            } catch (error) {
+                return {
+                    verified: false,
+                    errorMessage: error.message
+                };
+            }
+        }
+        
+        async function generateAuthenticationOptions() {
+            // This would normally come from your backend
+            return {
+                challenge: base64ToArrayBuffer(generateRandomString(32)),
+                timeout: 60000,
+                rpId: window.location.hostname,
+                allowCredentials: credentialInfo ? [{
+                    id: base64ToArrayBuffer(credentialInfo.id),
+                    type: 'public-key',
+                    transports: ['internal', 'usb', 'nfc', 'ble']
+                }] : [],
+                userVerification: 'required'
+            };
+        }
+        
+        async function verifyAuthentication(credential, expectedAddress) {
+            // This would normally be handled by your backend
+            return {
+                verified: true,
+                errorMessage: null
+            };
+        }
+        
+        function generateRandomString(length) {
+            const array = new Uint8Array(length);
+            crypto.getRandomValues(array);
+            return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+        
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+        
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById(type === 'error' ? 'registerResult' : type === 'success' ? 'registerResult' : 'registerResult');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
